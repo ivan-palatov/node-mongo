@@ -1,3 +1,4 @@
+const _ = require('lodash')
 const express = require('express')
 const bodyParser = require('body-parser')
 const {ObjectID} = require('mongodb')
@@ -28,7 +29,7 @@ app.get('/todos', (req, res) => {
 })
 
 app.get('/todos/:id', (req, res) => {
-    const id = req.params.id
+    let id = req.params.id
     if (!ObjectID.isValid(id)) {
        return  res.status(404).send({ error: 'ID is invalid!' })
     }
@@ -45,7 +46,7 @@ app.get('/todos/:id', (req, res) => {
 })
 
 app.delete('/todos/:id', (req, res) => {
-    const id = req.params.id
+    let id = req.params.id
     if (!ObjectID.isValid(id)) {
         return res.status(404).send({ error: 'ID is invalid!' })
     }
@@ -53,6 +54,33 @@ app.delete('/todos/:id', (req, res) => {
         .then(todo => {
             if (!todo) {
                 return res.status(404).send({ error: 'Todo with that ID does not exist'})
+            }
+            res.send({todo})
+        })
+        .catch(err => {
+            res.status(400).send({ error: 'Something went wrong' })
+        })
+})
+
+app.patch('/todos/:id', (req, res) => {
+    let id = req.params.id
+    let body = _.pick(req.body, ['text', 'completed'])
+    if (!ObjectID.isValid(id)) {
+        return res.status(404).send({ error: 'ID is invalid!' })
+    }
+    if (body.text.trim().length < 2) {
+        return res.status(400).send({ error: 'Text is too short!' })
+    }
+    if (_.isBoolean(body.completed) && body.completed) {
+        body.completedAt = new Date().getTime()
+    } else {
+        body.completed = false
+        body.completedAt = null
+    }
+    Todo.findByIdAndUpdate(id, {$set: body}, {new: true})
+        .then(todo => {
+            if (!todo) {
+                return res.status(404).send({ error: 'Todo with that ID does not exist' })
             }
             res.send({todo})
         })
