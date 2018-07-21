@@ -16,28 +16,28 @@ const port = process.env.PORT
 
 app.use(bodyParser.json())
 
-app.post('/todos', (req, res) => {
-    let todo = new Todo({ text: req.body.text })
+app.post('/todos', authenticate, (req, res) => {
+    let todo = new Todo({ text: req.body.text, _creator: req.user._id })
 
     todo.save()
         .then(doc => res.send(doc))
         .catch(err => res.status(400).send(err))
 })
 
-app.get('/todos', (req, res) => {
-    Todo.find()
+app.get('/todos', authenticate, (req, res) => {
+    Todo.find({ _creator: req.user._id })
         .then(todos => {
             res.send({todos})
         })
         .catch(err => res.status(400).send(err))
 })
 
-app.get('/todos/:id', (req, res) => {
+app.get('/todos/:id', authenticate, (req, res) => {
     let id = req.params.id
     if (!ObjectID.isValid(id)) {
        return  res.status(404).send({ error: 'ID is invalid!' })
     }
-    Todo.findById(id)
+    Todo.findOne({ _id: id, _creator: req.user._id })
         .then(todo => {
             if (!todo) {
                 return res.status(404).send({ error: 'Todo with that ID does not exist' })
@@ -45,16 +45,16 @@ app.get('/todos/:id', (req, res) => {
             res.send({todo})
         })
         .catch(err => {
-            res.status(400).send({ error: 'Something went wrong' })
+            res.status(404).send({ error: 'Something went wrong' })
         })
 })
 
-app.delete('/todos/:id', (req, res) => {
+app.delete('/todos/:id', authenticate, (req, res) => {
     let id = req.params.id
     if (!ObjectID.isValid(id)) {
         return res.status(404).send({ error: 'ID is invalid!' })
     }
-    Todo.findByIdAndRemove(id)
+    Todo.findOneAndRemove({ _id: id, _creator: req.user._id })
         .then(todo => {
             if (!todo) {
                 return res.status(404).send({ error: 'Todo with that ID does not exist'})
@@ -66,7 +66,7 @@ app.delete('/todos/:id', (req, res) => {
         })
 })
 
-app.patch('/todos/:id', (req, res) => {
+app.patch('/todos/:id', authenticate, (req, res) => {
     let id = req.params.id
     let body = _.pick(req.body, ['text', 'completed'])
     if (!ObjectID.isValid(id)) {
@@ -81,7 +81,7 @@ app.patch('/todos/:id', (req, res) => {
         body.completed = false
         body.completedAt = null
     }
-    Todo.findByIdAndUpdate(id, {$set: body}, {new: true})
+    Todo.findOneAndUpdate({ _id: id, _creator: req.user._id }, {$set: body}, {new: true})
         .then(todo => {
             if (!todo) {
                 return res.status(404).send({ error: 'Todo with that ID does not exist' })
