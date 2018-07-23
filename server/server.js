@@ -49,21 +49,20 @@ app.get('/todos/:id', authenticate, (req, res) => {
         })
 })
 
-app.delete('/todos/:id', authenticate, (req, res) => {
-    let id = req.params.id
+app.delete('/todos/:id', authenticate, async (req, res) => {
+    const id = req.params.id
     if (!ObjectID.isValid(id)) {
         return res.status(404).send({ error: 'ID is invalid!' })
     }
-    Todo.findOneAndRemove({ _id: id, _creator: req.user._id })
-        .then(todo => {
-            if (!todo) {
-                return res.status(404).send({ error: 'Todo with that ID does not exist'})
-            }
-            res.send({todo})
-        })
-        .catch(err => {
-            res.status(400).send({ error: 'Something went wrong' })
-        })
+    try {
+        const todo = await Todo.findOneAndRemove({ _id: id, _creator: req.user._id })
+        if (!todo) {
+            return res.status(404).send({ error: 'Todo with that ID does not exist'})
+        }
+        res.send({todo})
+    } catch (e) {
+        res.status(400).send({ error: 'Something went wrong' })
+    }
 })
 
 app.patch('/todos/:id', authenticate, (req, res) => {
@@ -99,43 +98,40 @@ app.patch('/todos/:id', authenticate, (req, res) => {
     USERS SECTION
 */
 
-app.post('/users', (req, res) => {
-    let body = _.pick(req.body, ['email', 'password'])
-    let user = new User(body)
-    user.save()
-        .then(() => {
-            return user.generateAuthToken()
-        })
-        .then(token => {
-            res.header('x-auth', token).send(user)
-        })
-        .catch(err => res.status(400).send({err}))
+app.post('/users', async (req, res) => {
+    try {
+        const body = _.pick(req.body, ['email', 'password'])
+        const user = new User(body)
+        await user.save()
+        const token = await user.generateAuthToken()
+        res.header('x-auth', token).send(user)
+    } catch (error) {
+        res.status(400).send({error})
+    }
 })
 
 app.get('/users/me', authenticate, (req, res) => {
     res.send(req.user)
 })
 
-app.post('/users/login', (req, res) => {
-    const body = _.pick(req.body, ['email', 'password'])
-    User.findByCredentials(body.email, body.password)
-        .then(user => {
-            user.generateAuthToken()
-                .then(token => {
-                    res.header('x-auth', token).send(user)
-                })
-                .catch(err => res.status(400).send({error: 'Something went wrong'}))
-        })
-        .catch(err => {
-            res.status(400).send({error : err})
-        })
+app.post('/users/login', async (req, res) => {
+    try {
+        const body = _.pick(req.body, ['email', 'password'])
+        const user = await User.findByCredentials(body.email, body.password)
+        const token = await user.generateAuthToken()
+        res.header('x-auth', token).send(user)
+    } catch (error) {
+        res.status(400).send({error})
+    }     
 })
 
-app.delete('/users/me/token', authenticate, (req, res) => {
-    req.user.removeToken(req.token)
-        .then(() => {
-            res.status(200).send()
-        }, err => res.status(400).send())
+app.delete('/users/me/token', authenticate, async (req, res) => {
+    try {
+        await req.user.removeToken(req.token)
+        res.status(200).send()
+    } catch (error) {
+        res.status(400).send()
+    }
 })
 
 
